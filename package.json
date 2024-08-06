@@ -2,7 +2,7 @@
   "name": "wc-tool",
   "version": "1.0.0",
   "description": "wc tool written in node based on requirements from Coding Challenges",
-  "main": "index.js",
+  "main": "./dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
