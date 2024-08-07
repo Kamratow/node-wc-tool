@@ -21,13 +21,13 @@ function main(): void {
       showFileLinesCount(filePath);
       break;
     case "-w":
-      showWordCount(filePath);
+      showFileWordCount(filePath);
       break;
     case "-m":
-      showCharCount(filePath);
+      showFileCharCount(filePath);
       break;
     default:
-      console.log("Please provide valid file and options and try again");
+      showAllFileStats(args[0]);
       break;
   }
 }
@@ -80,7 +80,7 @@ async function countLines(filePath: string): Promise<number | null> {
   }
 }
 
-async function showWordCount(filePath: string): Promise<void> {
+async function showFileWordCount(filePath: string): Promise<void> {
   const wordCount = await countWords(filePath);
 
   if (wordCount) {
@@ -112,7 +112,7 @@ async function countWords(filePath: string): Promise<number | null> {
   }
 }
 
-async function showCharCount(filePath: string): Promise<void> {
+async function showFileCharCount(filePath: string): Promise<void> {
   const charCount = await countChar(filePath);
 
   if (charCount) {
@@ -126,6 +126,16 @@ async function countChar(filePath: string): Promise<number | null> {
   } catch (e) {
     console.log(e);
     return null;
+  }
+}
+
+async function showAllFileStats(filePath: string): Promise<void> {
+  const fileBytes = await countBytes(filePath);
+  const lineCount = await countLines(filePath);
+  const wordCount = await countWords(filePath);
+
+  if (fileBytes) {
+    console.log(`${lineCount} ${wordCount} ${fileBytes} ${filePath}`);
   }
 }
 
