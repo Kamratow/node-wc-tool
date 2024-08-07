@@ -20,14 +20,15 @@ function main(): void {
     case "-l":
       showFileLinesCount(filePath);
       break;
+    case "-w":
+      showWordCount(filePath);
+      break;
     default:
       break;
   }
 }
 
 async function showFileBytes(filePath: string): Promise<void> {
-  console.log("Reading file...");
-
   const fileBytes = await countBytes(filePath);
 
   if (fileBytes) {
@@ -69,6 +70,38 @@ async function countLines(filePath: string): Promise<number | null> {
     }
 
     return lineCount;
+  } catch (e) {
+    console.log(e);
+    return null;
+  }
+}
+
+async function showWordCount(filePath: string): Promise<void> {
+  const wordCount = await countWords(filePath);
+
+  if (wordCount) {
+    console.log(`${wordCount} ${filePath}`);
+  }
+}
+
+async function countWords(filePath: string): Promise<number | null> {
+  try {
+    const fileStream = syncFs.createReadStream(filePath);
+
+    const rl = readline.createInterface({
+      input: fileStream,
+      crlfDelay: Infinity,
+    });
+
+    let wordCount = 0;
+
+    for await (const line of rl) {
+      wordCount += line
+        .split(/\s/)
+        .filter((singleWord) => singleWord != "").length;
+    }
+
+    return wordCount;
   } catch (e) {
     console.log(e);
     return null;
