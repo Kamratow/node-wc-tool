@@ -23,7 +23,11 @@ function main(): void {
     case "-w":
       showWordCount(filePath);
       break;
+    case "-m":
+      showCharCount(filePath);
+      break;
     default:
+      console.log("Please provide valid file and options and try again");
       break;
   }
 }
@@ -102,6 +106,23 @@ async function countWords(filePath: string): Promise<number | null> {
     }
 
     return wordCount;
+  } catch (e) {
+    console.log(e);
+    return null;
+  }
+}
+
+async function showCharCount(filePath: string): Promise<void> {
+  const charCount = await countChar(filePath);
+
+  if (charCount) {
+    console.log(`${charCount} ${filePath}`);
+  }
+}
+
+async function countChar(filePath: string): Promise<number | null> {
+  try {
+    return (await fs.readFile(filePath)).toString().length;
   } catch (e) {
     console.log(e);
     return null;
