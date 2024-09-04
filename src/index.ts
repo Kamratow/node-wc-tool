@@ -5,13 +5,11 @@ import syncFs from "node:fs";
 
 // we get third argument here as first one would be 'node' and the second one the script file we run
 function main(): void {
+  const isFilePathProvided = process.argv.length >= 4;
+
   const args = process.argv.slice(2);
   const wcArg = args[0];
-  const filePath = args[1];
-
-  if (wcArg == "-c") {
-    showFileBytes(filePath);
-  }
+  const filePath = isFilePathProvided ? args[1] : null;
 
   switch (wcArg) {
     case "-c":
@@ -27,43 +25,79 @@ function main(): void {
       showFileCharCount(filePath);
       break;
     default:
-      showAllFileStats(args[0]);
+      showAllFileStats(args[0] || null);
       break;
   }
 }
 
-async function showFileBytes(filePath: string): Promise<void> {
+async function convertStreamToBuffer(
+  stream: NodeJS.ReadableStream
+): Promise<Buffer> {
+  const chunks = [];
+
+  for await (const chunk of stream) {
+    chunks.push(Buffer.from(chunk));
+  }
+
+  return Buffer.concat(chunks);
+}
+
+async function showFileBytes(filePath: string | null): Promise<void> {
   const fileBytes = await countBytes(filePath);
 
-  if (fileBytes) {
+  if (!fileBytes) {
+    return;
+  }
+
+  if (filePath) {
     console.log(`${fileBytes} ${filePath}`);
+  } else {
+    console.log(`${fileBytes}`);
   }
 }
 
-async function countBytes(filePath: string): Promise<number | null> {
+async function countBytes(filePath: string | null): Promise<number | null> {
   try {
-    const stats = await fs.stat(filePath);
-    return stats.size;
+    // check if we have filepath provided to use fs for reading file stats
+    if (filePath) {
+      const stats = await fs.stat(filePath);
+      return stats.size;
+    }
+
+    // use stdin instead of file available locally
+    const stdinConvertedToString = await convertStreamToBuffer(process.stdin);
+
+    return stdinConvertedToString.byteLength;
   } catch (e) {
     console.log(e);
     return null;
   }
 }
 
-async function showFileLinesCount(filePath: string): Promise<void> {
+async function showFileLinesCount(filePath: string | null): Promise<void> {
   const lineCount = await countLines(filePath);
 
-  if (lineCount) {
+  if (!lineCount) {
+    return;
+  }
+
+  if (filePath) {
     console.log(`${lineCount} ${filePath}`);
+  } else {
+    console.log(`${lineCount}`);
   }
 }
 
-async function countLines(filePath: string): Promise<number | null> {
+async function countLines(filePath: string | null): Promise<number | null> {
   try {
-    const fileStream = syncFs.createReadStream(filePath);
+    let fileStream;
+
+    if (filePath) {
+      fileStream = syncFs.createReadStream(filePath);
+    }
 
     const rl = readline.createInterface({
-      input: fileStream,
+      input: fileStream || process.stdin,
       crlfDelay: Infinity,
     });
 
@@ -80,20 +114,30 @@ async function countLines(filePath: string): Promise<number | null> {
   }
 }
 
-async function showFileWordCount(filePath: string): Promise<void> {
+async function showFileWordCount(filePath: string | null): Promise<void> {
   const wordCount = await countWords(filePath);
 
-  if (wordCount) {
+  if (!wordCount) {
+    return;
+  }
+
+  if (filePath) {
     console.log(`${wordCount} ${filePath}`);
+  } else {
+    console.log(`${wordCount}`);
   }
 }
 
-async function countWords(filePath: string): Promise<number | null> {
+async function countWords(filePath: string | null): Promise<number | null> {
   try {
-    const fileStream = syncFs.createReadStream(filePath);
+    let fileStream;
+
+    if (filePath) {
+      fileStream = syncFs.createReadStream(filePath);
+    }
 
     const rl = readline.createInterface({
-      input: fileStream,
+      input: fileStream || process.stdin,
       crlfDelay: Infinity,
     });
 
@@ -112,30 +156,39 @@ async function countWords(filePath: string): Promise<number | null> {
   }
 }
 
-async function showFileCharCount(filePath: string): Promise<void> {
+async function showFileCharCount(filePath: string | null): Promise<void> {
   const charCount = await countChar(filePath);
 
-  if (charCount) {
+  if (filePath) {
     console.log(`${charCount} ${filePath}`);
+  } else {
+    console.log(`${charCount}`);
   }
 }
 
-async function countChar(filePath: string): Promise<number | null> {
+async function countChar(filePath: string | null): Promise<number | null> {
   try {
-    return (await fs.readFile(filePath)).toString().length;
+    if (filePath) {
+      return (await fs.readFile(filePath)).toString().length;
+    }
+
+    return (await convertStreamToBuffer(process.stdin)).toString("utf-8")
+      .length;
   } catch (e) {
     console.log(e);
     return null;
   }
 }
 
-async function showAllFileStats(filePath: string): Promise<void> {
+async function showAllFileStats(filePath: string | null): Promise<void> {
   const fileBytes = await countBytes(filePath);
   const lineCount = await countLines(filePath);
   const wordCount = await countWords(filePath);
 
-  if (fileBytes) {
+  if (filePath) {
     console.log(`${lineCount} ${wordCount} ${fileBytes} ${filePath}`);
+  } else {
+    console.log(`${lineCount} ${wordCount} ${fileBytes}`);
   }
 }
 
