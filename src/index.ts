@@ -1,32 +1,44 @@
 #!/usr/bin/env node
 import fs from "node:fs/promises";
 import readline from "node:readline";
-import syncFs from "node:fs";
+import { Readable } from "node:stream";
 
-// we get third argument here as first one would be 'node' and the second one the script file we run
-function main(): void {
-  const isFilePathProvided = process.argv.length >= 4;
+function getFilePath(commandArgs: string[]): string | null {
+  if (!process.stdin.isTTY) {
+    return null;
+  }
 
+  if (process.argv.length === 4) {
+    return commandArgs[1];
+  }
+
+  return commandArgs[0];
+}
+
+async function main(): Promise<void> {
+  // we get third argument here as first one would be 'node' and the second one the script file we run
   const args = process.argv.slice(2);
   const wcArg = args[0];
-  const filePath = isFilePathProvided ? args[1] : null;
+  const filePath = getFilePath(args);
+  const fileBuffer = filePath
+    ? await fs.readFile(filePath)
+    : await convertStreamToBuffer(process.stdin);
 
   switch (wcArg) {
     case "-c":
-      showFileBytes(filePath);
+      showFileBytes(filePath, fileBuffer);
       break;
     case "-l":
-      showFileLinesCount(filePath);
+      showFileLinesCount(filePath, fileBuffer);
       break;
     case "-w":
-      showFileWordCount(filePath);
+      showFileWordCount(filePath, fileBuffer);
       break;
     case "-m":
-      showFileCharCount(filePath);
+      showFileCharCount(filePath, fileBuffer);
       break;
     default:
-      showAllFileStats(args[0] || null);
-      break;
+      showAllFileStats(args[0] || null, fileBuffer);
   }
 }
 
@@ -42,12 +54,11 @@ async function convertStreamToBuffer(
   return Buffer.concat(chunks);
 }
 
-async function showFileBytes(filePath: string | null): Promise<void> {
-  const fileBytes = await countBytes(filePath);
-
-  if (!fileBytes) {
-    return;
-  }
+async function showFileBytes(
+  filePath: string | null,
+  fileBuffer: Buffer
+): Promise<void> {
+  const fileBytes = countBytes(fileBuffer);
 
   if (filePath) {
     console.log(`${fileBytes} ${filePath}`);
@@ -56,26 +67,15 @@ async function showFileBytes(filePath: string | null): Promise<void> {
   }
 }
 
-async function countBytes(filePath: string | null): Promise<number | null> {
-  try {
-    // check if we have filepath provided to use fs for reading file stats
-    if (filePath) {
-      const stats = await fs.stat(filePath);
-      return stats.size;
-    }
-
-    // use stdin instead of file available locally
-    const stdinConvertedToString = await convertStreamToBuffer(process.stdin);
-
-    return stdinConvertedToString.byteLength;
-  } catch (e) {
-    console.log(e);
-    return null;
-  }
+function countBytes(fileBuffer: Buffer): number {
+  return fileBuffer.byteLength;
 }
 
-async function showFileLinesCount(filePath: string | null): Promise<void> {
-  const lineCount = await countLines(filePath);
+async function showFileLinesCount(
+  filePath: string | null,
+  fileBuffer: Buffer
+): Promise<void> {
+  const lineCount = await countLines(fileBuffer);
 
   if (!lineCount) {
     return;
@@ -88,16 +88,12 @@ async function showFileLinesCount(filePath: string | null): Promise<void> {
   }
 }
 
-async function countLines(filePath: string | null): Promise<number | null> {
+async function countLines(fileBuffer: Buffer): Promise<number | null> {
   try {
-    let fileStream;
-
-    if (filePath) {
-      fileStream = syncFs.createReadStream(filePath);
-    }
+    const fileStream = Readable.from(fileBuffer);
 
     const rl = readline.createInterface({
-      input: fileStream || process.stdin,
+      input: fileStream,
       crlfDelay: Infinity,
     });
 
@@ -114,8 +110,11 @@ async function countLines(filePath: string | null): Promise<number | null> {
   }
 }
 
-async function showFileWordCount(filePath: string | null): Promise<void> {
-  const wordCount = await countWords(filePath);
+async function showFileWordCount(
+  filePath: string | null,
+  fileBuffer: Buffer
+): Promise<void> {
+  const wordCount = await countWords(fileBuffer);
 
   if (!wordCount) {
     return;
@@ -128,16 +127,12 @@ async function showFileWordCount(filePath: string | null): Promise<void> {
   }
 }
 
-async function countWords(filePath: string | null): Promise<number | null> {
+async function countWords(fileBuffer: Buffer): Promise<number | null> {
   try {
-    let fileStream;
-
-    if (filePath) {
-      fileStream = syncFs.createReadStream(filePath);
-    }
+    const fileStream = Readable.from(fileBuffer);
 
     const rl = readline.createInterface({
-      input: fileStream || process.stdin,
+      input: fileStream,
       crlfDelay: Infinity,
     });
 
@@ -156,8 +151,11 @@ async function countWords(filePath: string | null): Promise<number | null> {
   }
 }
 
-async function showFileCharCount(filePath: string | null): Promise<void> {
-  const charCount = await countChar(filePath);
+async function showFileCharCount(
+  filePath: string | null,
+  fileBuffer: Buffer
+): Promise<void> {
+  const charCount = countChar(fileBuffer);
 
   if (filePath) {
     console.log(`${charCount} ${filePath}`);
@@ -166,24 +164,22 @@ async function showFileCharCount(filePath: string | null): Promise<void> {
   }
 }
 
-async function countChar(filePath: string | null): Promise<number | null> {
+function countChar(fileBuffer: Buffer): number | null {
   try {
-    if (filePath) {
-      return (await fs.readFile(filePath)).toString().length;
-    }
-
-    return (await convertStreamToBuffer(process.stdin)).toString("utf-8")
-      .length;
+    return fileBuffer.toString().length;
   } catch (e) {
     console.log(e);
     return null;
   }
 }
 
-async function showAllFileStats(filePath: string | null): Promise<void> {
-  const fileBytes = await countBytes(filePath);
-  const lineCount = await countLines(filePath);
-  const wordCount = await countWords(filePath);
+async function showAllFileStats(
+  filePath: string | null,
+  fileBuffer: Buffer
+): Promise<void> {
+  const fileBytes = countBytes(fileBuffer);
+  const lineCount = await countLines(fileBuffer);
+  const wordCount = await countWords(fileBuffer);
 
   if (filePath) {
     console.log(`${lineCount} ${wordCount} ${fileBytes} ${filePath}`);
