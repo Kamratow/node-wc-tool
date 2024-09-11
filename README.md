@@ -21,3 +21,9 @@ An example of running the app with provided test file to see size of file in byt
 ```
 node dist/index.js -c test.txt
 ```
+
+The app does support reading from standard input.
+An example of using standard input instead of filename:
+```
+cat test.txt | node dist/index.js -l
+```
