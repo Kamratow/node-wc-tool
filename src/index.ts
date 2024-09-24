@@ -4,14 +4,17 @@ import readline from "node:readline";
 import { Readable } from "node:stream";
 
 function getFilePath(commandArgs: string[]): string | null {
+  // here we check if stdin has been piped to the program - if so then we set file path to null and rely on stdin
   if (!process.stdin.isTTY) {
     return null;
   }
 
+  // this is the scenario with both file path and option passed
   if (process.argv.length === 4) {
     return commandArgs[1];
   }
 
+  // this is the scenario with only file path without any options have been passed
   return commandArgs[0];
 }
 
@@ -20,6 +23,7 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const wcArg = args[0];
   const filePath = getFilePath(args);
+  // get the file buffer either from filePath if provided or from the standard input
   const fileBuffer = filePath
     ? await fs.readFile(filePath)
     : await convertStreamToBuffer(process.stdin);
